@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Task Scheduler</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        table, th, td {
+            border: 1px solid black;
+            border-collapse: collapse;
+            padding: 10px;
+        }
+        .due-soon {
+            background-color: orange;
+        }
+        .overdue {
+            background-color: red;
+            color: white;
+        }
+        .completed {
+            text-decoration: line-through;
+            color: gray;
+        }
+        .search-filter-container {
+            margin: 20px auto;
+            width: 90%;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        #searchInput, #statusFilter {
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            min-width: 200px;
+            transition: box-shadow 0.3s ease;
+        }
+        #searchInput:focus, #statusFilter:focus {
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+            outline: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Task Dashboard</h1>
+    <button id="darkModeToggle" style="float: right; margin: 10px;">🌙 Dark Mode</button>
+
+
+    {% if show_reminder %}
+    <div class="toast">
+      📢 Reminder: You have tasks due today!
+    </div>
+    {% endif %}
+
+    <a href="{{ url_for('add_task') }}">➕ Add New Task</a>
+
+    <!-- ✅ Search + Filter -->
+    <div class="search-filter-container">
+      <input type="text" id="searchInput" placeholder="🔍 Search by task title...">
+      <select id="statusFilter">
+        <option value="all">All</option>
+        <option value="Pending">Pending</option>
+        <option value="Completed">Completed</option>
+      </select>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>Description</th>
+                <th>Due Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for task in tasks %}
+            <tr class="{% if task[4] == 'Completed' %}completed{% elif task[3] < today|string %}overdue{% elif task[3] == today|string %}due-soon{% endif %}">
+                <td>{{ task[1] }}</td>
+                <td>{{ task[2] }}</td>
+                <td>{{ task[3] }}</td>
+                <td>{{ task[4] }}</td>
+                <td>
+                    {% if task[4] != 'Completed' %}
+                        <a href="{{ url_for('complete_task', task_id=task[0]) }}">✅ Complete</a>
+                    {% endif %}
+                    <a href="{{ url_for('edit_task', task_id=task[0]) }}">✏️ Edit</a>
+                    <a href="{{ url_for('delete_task', task_id=task[0]) }}">❌ Delete</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <script>
+      const searchInput = document.getElementById('searchInput');
+      const statusFilter = document.getElementById('statusFilter');
+      const rows = document.querySelectorAll("table tbody tr");
+
+      function filterTasks() {
+        const searchText = searchInput.value.toLowerCase();
+        const selectedStatus = statusFilter.value;
+
+        rows.forEach(row => {
+          const title = row.querySelector("td:nth-child(1)").textContent.toLowerCase();
+          const status = row.querySelector("td:nth-child(4)").textContent;
+
+          const matchesSearch = title.includes(searchText);
+          const matchesStatus = (selectedStatus === "all" || status === selectedStatus);
+
+          row.style.display = (matchesSearch && matchesStatus) ? "" : "none";
+        });
+      }
+
+      searchInput.addEventListener('input', filterTasks);
+      statusFilter.addEventListener('change', filterTasks);
+    </script>
+
+    <h2 style="text-align:center;">📊 Task Summary</h2>
+    <canvas id="taskChart" width="400" height="400" style="margin: auto; display: block;"></canvas>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+      fetch('/task_stats')
+        .then(response => response.json())
+        .then(data => {
+          const ctx = document.getElementById('taskChart').getContext('2d');
+          new Chart(ctx, {
+            type: 'pie',
+            data: {
+              labels: ['Pending', 'Completed'],
+              datasets: [{
+                label: 'Tasks',
+                data: [data.pending, data.completed],
+                backgroundColor: ['#f39c12', '#2ecc71'],
+                borderWidth: 1
+              }]
+            },
+            options: {
+              responsive: true,
+              animation: {
+                animateScale: true
+              }
+            }
+          });
+        });
+    </script>
+    <script>
+  const toggleBtn = document.getElementById('darkModeToggle');
+  const body = document.body;
+
+  // Load saved mode
+  if (localStorage.getItem('darkMode') === 'enabled') {
+    body.classList.add('dark');
+    toggleBtn.textContent = '☀️ Light Mode';
+  }
+
+  toggleBtn.addEventListener('click', () => {
+    body.classList.toggle('dark');
+    const darkModeOn = body.classList.contains('dark');
+    localStorage.setItem('darkMode', darkModeOn ? 'enabled' : 'disabled');
+    toggleBtn.textContent = darkModeOn ? '☀️ Light Mode' : '🌙 Dark Mode';
+  });
+</script>
+
+</body>
+</html>
